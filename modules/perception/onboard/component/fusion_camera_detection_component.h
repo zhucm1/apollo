@@ -37,6 +37,7 @@
 #include "modules/perception/proto/motion_service.pb.h"
 #include "modules/perception/proto/perception_camera.pb.h"
 #include "modules/perception/proto/perception_obstacle.pb.h"
+#include "modules/perception/camera/app/cipv_camera.h"
 
 typedef std::shared_ptr<apollo::perception::Motion_Service>
     MotionServiceMsgType;
@@ -189,12 +190,20 @@ class FusionCameraDetectionComponent : public apollo::cyber::Component<> {
       camera_debug_writer_;
 
   // variable for motion service
-  base::MotionBufferPtr mot_buffer_;
+  base::MotionBufferPtr motion_buffer_;
   const int motion_buffer_size_ = 100;
+
+  // // variables for CIPV
+  Cipv cipv_;
 
   // variables for visualization
   camera::Visualizer visualize_;
   bool write_visual_img_;
+
+  // Processing time
+  // uint64_t min_processing_time_ = UINT64_MAX;
+  // uint64_t max_processing_time_ = 0;
+  // uint64_t tot_processing_time_ = 0;
 };
 
 CYBER_REGISTER_COMPONENT(FusionCameraDetectionComponent);
