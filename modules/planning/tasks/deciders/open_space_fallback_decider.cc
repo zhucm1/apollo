@@ -26,7 +26,6 @@ using apollo::common::Status;
 using apollo::common::TrajectoryPoint;
 using apollo::common::math::Box2d;
 using apollo::common::math::Vec2d;
-using apollo::planning::TrajGearPair;
 
 OpenSpaceFallbackDecider::OpenSpaceFallbackDecider(const TaskConfig& config)
     : Decider(config) {}
@@ -52,20 +51,21 @@ Status OpenSpaceFallbackDecider::Process(Frame* frame) {
     // vehicle speed is decreased to zero inside safety distance
     *(frame_->mutable_open_space_info()->mutable_fallback_trajectory()) =
         frame->open_space_info().chosen_paritioned_trajectory();
-    auto ptr_fallback_trajectory_pair =
+    auto* ptr_fallback_trajectory_pair =
         frame_->mutable_open_space_info()->mutable_fallback_trajectory();
-    const auto collision_point =
+    const auto future_collision_point =
         ptr_fallback_trajectory_pair->first[first_collision_idx];
     auto previous_point = ptr_fallback_trajectory_pair->first[current_idx];
     double relative_collision_distance =
-        collision_point.path_point().s() - previous_point.path_point().s();
-    double stopping_distance = relative_collision_distance;
+        future_collision_point.path_point().s() -
+        previous_point.path_point().s();
+
     // the accelerate = -v0^2 / (2*s), where s is slowing down distance
     size_t temp_horizon =
         frame_->open_space_info().fallback_trajectory().first.NumOfPoints();
-    const double accelerate =
-        -previous_point.v() * previous_point.v() / (2.0 * stopping_distance);
-    double relative_stopping_time = std::abs(previous_point.v()) / accelerate;
+    const double accelerate = -previous_point.v() * previous_point.v() /
+                              (2.0 * (relative_collision_distance + 1e-6));
+    const double relative_stopping_time = -previous_point.v() / accelerate;
     for (size_t i = current_idx; i < temp_horizon; ++i) {
       double temp_relative_time =
           ptr_fallback_trajectory_pair->first[i].relative_time() -
@@ -74,20 +74,19 @@ Status OpenSpaceFallbackDecider::Process(Frame* frame) {
 
       if (ptr_fallback_trajectory_pair->first[i].relative_time() >
           relative_stopping_time) {
-        ptr_fallback_trajectory_pair->first[i].mutable_path_point()->set_x(
-            previous_point.path_point().x());
-        ptr_fallback_trajectory_pair->first[i].mutable_path_point()->set_y(
-            previous_point.path_point().y());
+        ptr_fallback_trajectory_pair->first[i].mutable_path_point()->CopyFrom(
+            previous_point.path_point());
         ptr_fallback_trajectory_pair->first[i].set_v(0.0);
         ptr_fallback_trajectory_pair->first[i].set_a(0.0);
-        ptr_fallback_trajectory_pair->first[i].mutable_path_point()->set_s(
-            previous_point.path_point().s());
       } else {
         ptr_fallback_trajectory_pair->first[i].set_v(temp_v);
         ptr_fallback_trajectory_pair->first[i].set_a(accelerate);
         previous_point = ptr_fallback_trajectory_pair->first[i];
       }
     }
+    *(frame_->mutable_open_space_info()->mutable_future_collision_point()) =
+        future_collision_point;
+
   } else {
     frame_->mutable_open_space_info()->set_fallback_flag(false);
   }
@@ -121,6 +120,7 @@ bool OpenSpaceFallbackDecider::IsCollisionFreeTrajectory(
     const std::vector<std::vector<common::math::Box2d>>&
         predicted_bounding_rectangles,
     size_t* current_idx, size_t* first_collision_idx) {
+  // prediction time resolution: FLAGS_trajectory_time_resolution
   const auto& vehicle_config =
       common::VehicleConfigHelper::Instance()->GetConfig();
   double ego_length = vehicle_config.vehicle_param().length();
@@ -146,9 +146,10 @@ bool OpenSpaceFallbackDecider::IsCollisionFreeTrajectory(
         if (ego_box.HasOverlap(obstacle_box)) {
           const auto& vehicle_state = frame_->vehicle_state();
           Vec2d vehicle_vec({vehicle_state.x(), vehicle_state.y()});
-          if (obstacle_box.DistanceTo(vehicle_vec) <
-              config_.open_space_fallback_decider_config()
-                  .open_space_fall_back_collision_distance()) {
+          if (std::abs(trajectory_point.relative_time() -
+                       static_cast<double>(j) *
+                           FLAGS_trajectory_time_resolution) <
+              FLAGS_trajectory_time_resolution) {
             *first_collision_idx = i;
             return false;
           }
