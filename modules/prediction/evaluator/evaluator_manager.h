@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include <list>
 #include <map>
 #include <memory>
 #include <vector>
@@ -98,8 +99,13 @@ class EvaluatorManager {
   ObstacleConf::EvaluatorType cyclist_on_lane_evaluator_ =
       ObstacleConf::CYCLIST_KEEP_LANE_EVALUATOR;
 
+  ObstacleConf::EvaluatorType pedestrian_evaluator_ =
+      ObstacleConf::PEDESTRIAN_INTERACTION_EVALUATOR;
+
   ObstacleConf::EvaluatorType default_on_lane_evaluator_ =
       ObstacleConf::MLP_EVALUATOR;
+
+  FrameEnv curr_frame_env_;
 
   DECLARE_SINGLETON(EvaluatorManager)
 };

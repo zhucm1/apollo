@@ -65,11 +65,12 @@ class PiecewiseJerkProblem {
    * -- w[4]: default reference line weight, (x_bounds[k].first +
    * x_bounds[k].second)/2
    */
-  virtual void InitProblem(
-      const size_t num_var, const double delta_s,
-      const std::array<double, 5>& w, const double max_x_third_order_derivative,
-      const std::array<double, 3>& x_init = {0.0, 0.0, 0.0},
-      const std::array<double, 3>& x_end = {0.0, 0.0, 0.0});
+  virtual void InitProblem(const size_t num_var, const double delta_s,
+                           const std::array<double, 5>& w,
+                           const std::array<double, 3>& x_init = {0.0, 0.0,
+                                                                  0.0},
+                           const std::array<double, 3>& x_end = {0.0, 0.0,
+                                                                 0.0});
 
   virtual void ResetInitConditions(const std::array<double, 3>& x_init) {
     x_init_ = x_init;
@@ -78,6 +79,10 @@ class PiecewiseJerkProblem {
   virtual void ResetEndConditions(const std::array<double, 3>& x_end) {
     x_end_ = x_end;
   }
+
+  void SetZeroOrderReference(std::vector<double> x_ref);
+
+  void SetFirstOrderPenalty(std::vector<double> penalty_dx);
 
   void SetZeroOrderBounds(std::vector<std::pair<double, double>> x_bounds);
 
@@ -93,6 +98,10 @@ class PiecewiseJerkProblem {
 
   void SetSecondOrderBounds(const double ddx_lower_bound,
                             const double ddx_upper_bound);
+
+  void SetThirdOrderBound(const double dddx_bound) {
+    max_x_third_order_derivative_ = dddx_bound;
+  }
 
   // x_bounds: tuple(s, lower_bounds, upper_bounds)
   // s doesn't need to be sorted
@@ -155,6 +164,8 @@ class PiecewiseJerkProblem {
 
   std::array<double, 3> x_init_;
   std::array<double, 3> x_end_;
+  std::vector<double> x_ref_;
+  std::vector<double> penalty_dx_;
   std::vector<std::pair<double, double>> x_bounds_;
   std::vector<std::pair<double, double>> dx_bounds_;
   std::vector<std::pair<double, double>> ddx_bounds_;

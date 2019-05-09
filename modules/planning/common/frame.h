@@ -24,6 +24,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -130,26 +131,6 @@ class Frame {
     return current_frame_planned_trajectory_;
   }
 
-  // TODO(Qi, Jinyun): check the usage in open space planner
-  //                   and remove it from frame
-  planning_internal::OpenSpaceDebug *mutable_open_space_debug() {
-    return &open_space_debug_;
-  }
-
-  const planning_internal::OpenSpaceDebug &open_space_debug() {
-    return open_space_debug_;
-  }
-
-  // TODO(Qi, Jinyun): check the usage in open space planner
-  //                   and remove it from frame
-  std::vector<common::TrajectoryPoint> *mutable_last_stitching_trajectory() {
-    return &stitching_trajectory_;
-  }
-
-  const std::vector<common::TrajectoryPoint> &last_stitching_trajectory() {
-    return stitching_trajectory_;
-  }
-
   const bool is_near_destination() const { return is_near_destination_; }
 
   /**
@@ -215,11 +196,6 @@ class Frame {
   ChangeLaneDecider change_lane_decider_;
   ADCTrajectory current_frame_planned_trajectory_;  // last published trajectory
 
-  // debug info for open space planner
-  planning_internal::OpenSpaceDebug open_space_debug_;
-  // stitching trajectory for open space planner
-  std::vector<common::TrajectoryPoint> stitching_trajectory_;
-
   const ReferenceLineProvider *reference_line_provider_ = nullptr;
 
   OpenSpaceInfo open_space_info_;
@@ -227,6 +203,8 @@ class Frame {
   std::vector<routing::LaneWaypoint> future_route_waypoints_;
 
   common::monitor::MonitorLogBuffer monitor_logger_buffer_;
+
+  std::tuple<bool, double, double, double> pull_over_info_;
 };
 
 class FrameHistory : public IndexedQueue<uint32_t, Frame> {

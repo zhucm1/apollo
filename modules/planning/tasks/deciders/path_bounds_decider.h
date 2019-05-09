@@ -37,11 +37,11 @@
 namespace apollo {
 namespace planning {
 
-constexpr double kPathBoundsDeciderHorizon = 100.0;
+constexpr double kPathBoundsDeciderHorizon = 150.0;
 constexpr double kPathBoundsDeciderResolution = 0.5;
 constexpr double kDefaultLaneWidth = 5.0;
 constexpr double kDefaultRoadWidth = 20.0;
-constexpr double kObstacleStartSBuffer = 4.0;
+constexpr double kObstacleStartSBuffer = 3.0;
 constexpr double kObstacleEndSBuffer = 2.0;
 constexpr double kObstacleLBuffer = 0.4;
 constexpr int kNumExtraTailBoundPoint = 10;
@@ -111,15 +111,20 @@ class PathBoundsDecider : public Decider {
       const ReferenceLineInfo& reference_line_info,
       std::vector<std::tuple<double, double, double>>* const path_bound);
 
+  bool SearchPullOverPosition(
+      const ReferenceLineInfo& reference_line_info,
+      const std::vector<std::tuple<double, double, double>>& path_bound,
+      std::tuple<double, double, double, double, double>* const
+          pull_over_configuration);
+
   /** @brief Remove redundant path bounds in the following manner:
-    *   - if "left" is contained by "right", remove "left"; vice versa.
-    */
+   *   - if "left" is contained by "right", remove "left"; vice versa.
+   */
   void RemoveRedundantPathBoundaries(
       std::vector<PathBoundary>* const candidate_path_boundaries);
 
-  bool IsContained(
-      const std::vector<std::pair<double, double>>& lhs,
-      const std::vector<std::pair<double, double>>& rhs);
+  bool IsContained(const std::vector<std::pair<double, double>>& lhs,
+                   const std::vector<std::pair<double, double>>& rhs);
 
   /////////////////////////////////////////////////////////////////////////////
   // Below are functions called when generating path bounds.
@@ -147,6 +152,14 @@ class PathBoundsDecider : public Decider {
   bool GetLaneInfoFromPoint(double point_x, double point_y, double point_z,
                             double point_theta,
                             hdmap::LaneInfoConstPtr* const lane);
+
+  /** @brief Due to reference line smoothing issue, it may deviate from the
+   *  road center. We need to take that into consideration to avoid ADC
+   *  getting off road.
+   */
+  bool GetBoundaryFromRefLineOffset(
+      const ReferenceLine& reference_line,
+      std::vector<std::tuple<double, double, double>>* const path_bound);
 
   /** @brief Refine the boundary based on static obstacles. It will make sure
    *   the boundary doesn't contain any static obstacle so that the path
@@ -214,6 +227,7 @@ class PathBoundsDecider : public Decider {
   double adc_frenet_sd_ = 0.0;
   double adc_frenet_l_ = 0.0;
   double adc_frenet_ld_ = 0.0;
+  double adc_l_to_lane_center_ = 0.0;
   double adc_lane_width_ = 0.0;
   hdmap::LaneInfoConstPtr adc_lane_info_;
 

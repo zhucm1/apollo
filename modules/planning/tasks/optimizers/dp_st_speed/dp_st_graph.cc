@@ -102,25 +102,22 @@ Status DpStGraph::Search(SpeedData* const speed_data) {
     }
   }
 
-  if (st_graph_data_.st_boundaries().empty()) {
-    ADEBUG << "No path obstacles, dp_st_graph output default speed profile.";
-    std::vector<SpeedPoint> speed_profile;
-    double s = 0.0;
-    double t = 0.0;
-    for (int i = 0; i <= dp_st_speed_config_.matrix_dimension_t() &&
-                    i <= dp_st_speed_config_.matrix_dimension_s();
-         ++i, t += unit_t_, s += unit_s_) {
-      SpeedPoint speed_point;
-      speed_point.set_s(s);
-      speed_point.set_t(t);
-      const double v_default = unit_s_ / unit_t_;
-      speed_point.set_v(v_default);
-      speed_point.set_a(0.0);
-      speed_profile.emplace_back(std::move(speed_point));
-    }
-    *speed_data = SpeedData(std::move(speed_profile));
-    return Status::OK();
-  }
+  // TODO(Hongyi): remove default speed and always search
+  // if (st_graph_data_.st_boundaries().empty()) {
+  //   ADEBUG << "No path obstacles, dp_st_graph output default speed profile.";
+  //   std::vector<SpeedPoint> speed_profile;
+  //   const double v_default = FLAGS_default_cruise_speed;
+  //   for (int i = 0; i <= dp_st_speed_config_.matrix_dimension_t(); ++i) {
+  //     SpeedPoint speed_point;
+  //     speed_point.set_s(i * unit_t_ * v_default);
+  //     speed_point.set_t(i * unit_t_);
+  //     speed_point.set_v(v_default);
+  //     speed_point.set_a(0.0);
+  //     speed_profile.emplace_back(std::move(speed_point));
+  //   }
+  //   *speed_data = SpeedData(std::move(speed_profile));
+  //   return Status::OK();
+  // }
 
   if (!InitCostTable().ok()) {
     const std::string msg = "Initialize cost table failed.";
@@ -170,7 +167,7 @@ Status DpStGraph::CalculateTotalCost() {
 
   for (size_t c = 0; c < cost_table_.size(); ++c) {
     size_t highest_row = 0;
-    auto lowest_row = cost_table_.back().size() - 1;
+    size_t lowest_row = cost_table_.back().size() - 1;
 
     int count = static_cast<int>(next_highest_row) -
                 static_cast<int>(next_lowest_row) + 1;
@@ -199,7 +196,7 @@ Status DpStGraph::CalculateTotalCost() {
         size_t l_r = 0;
         GetRowRange(cost_cr, &h_r, &l_r);
         highest_row = std::max(highest_row, h_r);
-        lowest_row = std::min(lowest_row, static_cast<size_t>(l_r));
+        lowest_row = std::min(lowest_row, l_r);
       }
     }
     next_highest_row = highest_row;
@@ -222,6 +219,8 @@ void DpStGraph::GetRowRange(const StGraphPoint& point, size_t* next_highest_row,
 
   const double speed_coeff = unit_t_ * unit_t_;
 
+  // TODO(Jinyun): Evaluate the upper bound correctness. Should be v0*t + 0.5*
+  // a*t^2
   const double delta_s_upper_bound =
       v0 * unit_t_ + vehicle_param_.max_acceleration() * speed_coeff;
   *next_highest_row =

@@ -29,10 +29,11 @@ namespace {
 constexpr double kMaxVariableRange = 1e10;
 }  // namespace
 
-void PiecewiseJerkProblem::InitProblem(
-    const size_t num_of_knots, const double delta_s,
-    const std::array<double, 5>& w, const double max_x_third_order_derivative,
-    const std::array<double, 3>& x_init, const std::array<double, 3>& x_end) {
+void PiecewiseJerkProblem::InitProblem(const size_t num_of_knots,
+                                       const double delta_s,
+                                       const std::array<double, 5>& w,
+                                       const std::array<double, 3>& x_init,
+                                       const std::array<double, 3>& x_end) {
   CHECK_GE(num_of_knots, 2);
   num_of_knots_ = num_of_knots;
 
@@ -45,8 +46,6 @@ void PiecewiseJerkProblem::InitProblem(
   weight_.x_third_order_derivative_w = w[3];
   weight_.x_ref_w = w[4];
 
-  max_x_third_order_derivative_ = max_x_third_order_derivative;
-
   delta_s_ = delta_s;
   delta_s_sq_ = delta_s * delta_s;
 
@@ -58,6 +57,9 @@ void PiecewiseJerkProblem::InitProblem(
 
   ddx_bounds_.resize(num_of_knots_,
                      std::make_pair(-kMaxVariableRange, kMaxVariableRange));
+
+  x_ref_.resize(num_of_knots_, 0.0);
+  penalty_dx_.resize(num_of_knots_, 0.0);
 }
 
 bool PiecewiseJerkProblem::OptimizeWithOsqp(
@@ -93,13 +95,25 @@ bool PiecewiseJerkProblem::OptimizeWithOsqp(
     return false;
   }
 
-  /**
   if (status != 1 && status != 2) {
     AERROR << "failed optimization status:\t" << (*work)->info->status;
     return false;
   }
-  **/
+
   return true;
+}
+
+void PiecewiseJerkProblem::SetZeroOrderReference(std::vector<double> x_ref) {
+  if (x_ref.size() == num_of_knots_) {
+    x_ref_ = std::move(x_ref);
+  }
+}
+
+void PiecewiseJerkProblem::SetFirstOrderPenalty(
+    std::vector<double> penalty_dx) {
+  if (penalty_dx.size() == num_of_knots_) {
+    penalty_dx_ = std::move(penalty_dx);
+  }
 }
 
 void PiecewiseJerkProblem::SetZeroOrderBounds(
@@ -414,17 +428,12 @@ void PiecewiseJerkProblem::CalculateOffset(std::vector<c_float>* q) {
   const int N = static_cast<int>(num_of_knots_);
   const int kNumParam = 3 * N;
   q->resize(kNumParam);
-  for (int i = 0; i < kNumParam; ++i) {
-    if (i < N) {
-      q->at(i) = -1.0 * weight_.x_ref_w *
-                 (std::get<0>(x_bounds_[i]) + std::get<1>(x_bounds_[i]));
-    } else {
-      q->at(i) = 0.0;
-    }
+  for (int i = 0; i < N; ++i) {
+    q->at(i) += -2.0 * weight_.x_ref_w * x_ref_[i];
   }
-  q->at(N - 1) = -2.0 * weight_.x_w * x_end_[0];
-  q->at(N * 2 - 1) = -2.0 * weight_.x_derivative_w * x_end_[1];
-  q->at(N * 3 - 1) = -2.0 * weight_.x_second_order_derivative_w * x_end_[2];
+  q->at(N - 1) += -2.0 * weight_.x_w * x_end_[0];
+  q->at(N * 2 - 1) += -2.0 * weight_.x_derivative_w * x_end_[1];
+  q->at(N * 3 - 1) += -2.0 * weight_.x_second_order_derivative_w * x_end_[2];
 }
 
 }  // namespace planning

@@ -22,6 +22,7 @@ cc_library(
         "//modules/planning/common:obstacle",
         "//modules/planning/common:path_boundary",
         "//modules/planning/common:path_decision",
+        "//modules/planning/common:planning_context",
         "//modules/planning/common:planning_gflags",
         "//modules/planning/common/path:discretized_path",
         "//modules/planning/common/path:frenet_frame_path",

@@ -122,14 +122,11 @@ bool Frame::Rerouting() {
     return false;
   }
 
-  PlanningContext::MutablePlanningStatus()
-      ->mutable_rerouting()
-      ->set_need_rerouting(true);
-
-  PlanningContext::MutablePlanningStatus()
-      ->mutable_rerouting()
-      ->mutable_routing_request()
-      ->CopyFrom(request);
+  auto *rerouting = PlanningContext::Instance()
+                        ->mutable_planning_status()
+                        ->mutable_rerouting();
+  rerouting->set_need_rerouting(true);
+  *rerouting->mutable_routing_request() = request;
 
   monitor_logger_buffer_.INFO("Planning send Rerouting request");
   return true;
@@ -332,7 +329,7 @@ Status Frame::Init(
     const std::list<ReferenceLine> &reference_lines,
     const std::list<hdmap::RouteSegments> &segments,
     const std::vector<routing::LaneWaypoint> &future_route_waypoints) {
-  // TODO(QiL): refactor this to avoid redudant nullptr checks in scenarios.
+  // TODO(QiL): refactor this to avoid redundant nullptr checks in scenarios.
   auto status = InitFrameData();
   if (!status.ok()) {
     AERROR << "failed to init frame:" << status.ToString();
